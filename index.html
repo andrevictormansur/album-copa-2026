@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Álbum Copa 2026 — Tracker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Anton&family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=JetBrains+Mono:wght@400;700&display=swap"
+    rel="stylesheet"
+  />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- ============== LOGIN ============== -->
+  <div id="login-screen" class="login-screen">
+    <div class="login-grid">
+      <div class="login-art">
+        <div class="login-art-stamp">
+          <span class="stamp-line">EDIÇÃO ESPECIAL</span>
+          <span class="stamp-year">2026</span>
+          <span class="stamp-line">982 FIGURINHAS</span>
+        </div>
+        <div class="login-art-headline">
+          <span class="kicker">Álbum digital</span>
+          <h1>
+            COPA<br />
+            DO<br />
+            MUNDO
+          </h1>
+          <span class="hosts">México &middot; Canadá &middot; Estados Unidos</span>
+        </div>
+        <div class="login-art-foot">
+          <span class="ball">⚽</span>
+          <em>Cole, conte, comemore.</em>
+        </div>
+      </div>
+
+      <div class="login-form-wrap">
+        <div class="login-form-card">
+          <div class="form-marker">
+            <span>N°</span>
+            <strong>001</strong>
+          </div>
+          <h2 class="form-title">Entre no seu álbum</h2>
+          <p class="form-sub">
+            Login simples — só pra guardar seu progresso neste navegador.
+          </p>
+
+          <form id="login-form" class="login-form" autocomplete="on">
+            <label class="field">
+              <span>E-mail</span>
+              <input
+                type="email"
+                name="email"
+                required
+                placeholder="voce@exemplo.com"
+                autocomplete="email"
+              />
+            </label>
+            <label class="field">
+              <span>Senha</span>
+              <input
+                type="password"
+                name="password"
+                required
+                minlength="3"
+                placeholder="••••••••"
+                autocomplete="current-password"
+              />
+            </label>
+            <button type="submit" class="btn-primary">
+              Entrar no álbum
+              <span class="arrow">→</span>
+            </button>
+            <p class="login-hint">
+              Não existe servidor — seus dados ficam só neste dispositivo.
+            </p>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============== APP ============== -->
+  <div id="app" class="app hidden">
+    <header class="app-header">
+      <div class="brand">
+        <div class="brand-mark">A26</div>
+        <div class="brand-text">
+          <span class="brand-kicker">Álbum digital</span>
+          <h1 class="brand-title">COPA 2026</h1>
+        </div>
+      </div>
+
+      <div class="progress-block">
+        <div class="progress-stats">
+          <div class="stat">
+            <span class="stat-num" id="stat-collected">0</span>
+            <span class="stat-label">coladas</span>
+          </div>
+          <div class="stat">
+            <span class="stat-num" id="stat-missing">982</span>
+            <span class="stat-label">faltam</span>
+          </div>
+          <div class="stat">
+            <span class="stat-num" id="stat-percent">0%</span>
+            <span class="stat-label">completo</span>
+          </div>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill" id="progress-fill"></div>
+          <div class="progress-ticks"></div>
+        </div>
+      </div>
+
+      <div class="header-side">
+        <div class="user-chip" id="user-chip"></div>
+        <button class="btn-ghost" id="logout-btn" title="Sair">Sair</button>
+      </div>
+    </header>
+
+    <nav class="section-nav" id="section-nav"></nav>
+
+    <main class="album" id="album"></main>
+
+    <footer class="app-footer">
+      <span>Álbum Copa 2026 — tracker pessoal</span>
+      <span class="dot">•</span>
+      <span>Salvo automaticamente neste navegador</span>
+    </footer>
+  </div>
+
+  <!-- ============== CELEBRATION ============== -->
+  <div id="celebration" class="celebration hidden" aria-hidden="true">
+    <div class="celebration-card">
+      <div class="celebration-stamp">
+        <div class="stamp-ring stamp-ring-1"></div>
+        <div class="stamp-ring stamp-ring-2"></div>
+        <div class="stamp-text">
+          <span class="stamp-top">PÁGINA</span>
+          <strong class="stamp-big">COMPLETA</strong>
+          <span class="stamp-bot" id="celebration-section">—</span>
+        </div>
+      </div>
+      <p class="celebration-msg">
+        Mais uma seleção colada no álbum. Em frente, colecionador!
+      </p>
+      <button class="btn-primary" id="celebration-close">
+        Continuar colando
+        <span class="arrow">→</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- libs -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/twemoji@14.0.2/dist/twemoji.min.js"></script>
+
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
