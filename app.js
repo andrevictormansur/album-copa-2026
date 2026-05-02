@@ -30,6 +30,13 @@ document.addEventListener("DOMContentLoaded", () => {
   $("#login-form").addEventListener("submit", handleLogin);
   $("#logout-btn").addEventListener("click", handleLogout);
   $("#celebration-close").addEventListener("click", closeCelebration);
+  $("#export-btn").addEventListener("click", exportProgress);
+  $("#import-btn").addEventListener("click", () => $("#import-file").click());
+  $("#import-file").addEventListener("change", (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (file) importProgress(file);
+    e.target.value = "";
+  });
 });
 
 /* --------------------------------------------
@@ -93,6 +100,72 @@ function writeProgress() {
   localStorage.setItem(
     progressKey(state.user.email),
     JSON.stringify(Array.from(state.collected))
+  );
+}
+
+/* --------------------------------------------
+   Backup / Restore
+   -------------------------------------------- */
+function exportProgress() {
+  if (!state.user) return;
+  const payload = {
+    schema: "album-copa-2026/v1",
+    email: state.user.email,
+    exportedAt: new Date().toISOString(),
+    total: state.collected.size,
+    collected: Array.from(state.collected).sort(),
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], {
+    type: "application/json",
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  const stamp = new Date().toISOString().slice(0, 10);
+  const safeEmail = state.user.email.replace(/[^a-z0-9]/gi, "_");
+  a.href = url;
+  a.download = `album-copa-2026-${safeEmail}-${stamp}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+async function importProgress(file) {
+  if (!state.user) return;
+  let data;
+  try {
+    const text = await file.text();
+    data = JSON.parse(text);
+  } catch {
+    alert("Arquivo inválido — não é um JSON.");
+    return;
+  }
+  if (!data || !Array.isArray(data.collected)) {
+    alert("Arquivo inválido — não tem a lista de figurinhas.");
+    return;
+  }
+
+  const incoming = data.collected.filter((c) => typeof c === "string");
+  const before = state.collected.size;
+  const mode = confirm(
+    `Encontrei ${incoming.length} figurinhas no backup.\n\n` +
+      `OK   = mesclar (mantém suas atuais + adiciona as do backup)\n` +
+      `Cancelar = substituir (apaga as atuais e fica só com as do backup)`
+  );
+
+  if (mode) {
+    incoming.forEach((c) => state.collected.add(c));
+  } else {
+    state.collected = new Set(incoming);
+  }
+
+  writeProgress();
+  renderNav();
+  renderAlbum();
+  updateOverallProgress();
+  alert(
+    `Pronto! ${state.collected.size} figurinhas no álbum agora ` +
+      `(antes: ${before}).`
   );
 }
 
