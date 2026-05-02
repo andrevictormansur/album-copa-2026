@@ -35,6 +35,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (file) importProgress(file);
     e.target.value = "";
   });
+  $$("#view-tabs .view-tab").forEach((tab) =>
+    tab.addEventListener("click", () => switchView(tab.dataset.view))
+  );
 
   const {
     data: { session },
@@ -247,8 +250,20 @@ function showApp() {
   $("#user-chip").textContent = state.user.email;
   renderNav();
   renderAlbum();
+  renderDashboard();
   updateOverallProgress();
   twemojiParse(document.body);
+}
+
+function switchView(view) {
+  const isDashboard = view === "dashboard";
+  $("#album").classList.toggle("hidden", isDashboard);
+  $("#dashboard").classList.toggle("hidden", !isDashboard);
+  $("#section-nav").classList.toggle("hidden", isDashboard);
+  $$("#view-tabs .view-tab").forEach((t) =>
+    t.classList.toggle("is-active", t.dataset.view === view)
+  );
+  if (isDashboard) renderDashboard();
 }
 
 /* --------------------------------------------
@@ -287,6 +302,82 @@ function refreshNavChip(section) {
   const total = section.stickers.length;
   $(".nav-count", chip).textContent = `${collected}/${total}`;
   chip.classList.toggle("is-complete", collected === total);
+}
+
+/* --------------------------------------------
+   Render: Dashboard (visão geral)
+   -------------------------------------------- */
+function renderDashboard() {
+  const dash = $("#dashboard");
+  if (!dash) return;
+  const total = ALBUM.totalStickers;
+  const collected = state.collected.size;
+  const percent = total ? Math.round((collected / total) * 100) : 0;
+
+  const completedSections = ALBUM.sections.filter(
+    (s) => countCollected(s) === s.stickers.length
+  ).length;
+
+  const rows = ALBUM.sections
+    .map((section, idx) => {
+      const c = countCollected(section);
+      const t = section.stickers.length;
+      const p = t ? Math.round((c / t) * 100) : 0;
+      const isComplete = c === t;
+      const num = String(idx + 1).padStart(2, "0");
+      return `
+      <button type="button" class="dash-row ${isComplete ? "is-complete" : ""}" data-section="${section.id}">
+        <span class="dash-num">${num}</span>
+        <span class="dash-flag">${section.flag}</span>
+        <span class="dash-name">
+          <strong>${escapeHtml(section.name)}</strong>
+          <em>${section.code}</em>
+        </span>
+        <span class="dash-count">${c}/${t}</span>
+        <span class="dash-bar"><span class="dash-fill" style="width:${p}%"></span></span>
+        <span class="dash-percent">${p}%</span>
+      </button>
+    `;
+    })
+    .join("");
+
+  dash.innerHTML = `
+    <div class="dash-summary">
+      <div class="dash-summary-card">
+        <span class="dash-summary-label">Coladas</span>
+        <strong class="dash-summary-num">${collected}</strong>
+        <span class="dash-summary-sub">de ${total}</span>
+      </div>
+      <div class="dash-summary-card">
+        <span class="dash-summary-label">Faltam</span>
+        <strong class="dash-summary-num">${total - collected}</strong>
+        <span class="dash-summary-sub">figurinhas</span>
+      </div>
+      <div class="dash-summary-card">
+        <span class="dash-summary-label">Completo</span>
+        <strong class="dash-summary-num">${percent}%</strong>
+        <span class="dash-summary-sub">geral</span>
+      </div>
+      <div class="dash-summary-card">
+        <span class="dash-summary-label">Páginas</span>
+        <strong class="dash-summary-num">${completedSections}</strong>
+        <span class="dash-summary-sub">de ${ALBUM.sections.length} fechadas</span>
+      </div>
+    </div>
+    <div class="dash-list">${rows}</div>
+  `;
+
+  $$(".dash-row", dash).forEach((row) => {
+    row.addEventListener("click", () => {
+      switchView("album");
+      requestAnimationFrame(() => {
+        const target = document.getElementById(`section-${row.dataset.section}`);
+        if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    });
+  });
+
+  twemojiParse(dash);
 }
 
 /* --------------------------------------------
@@ -405,6 +496,8 @@ function updateOverallProgress() {
   $("#stat-missing").textContent = missing;
   $("#stat-percent").textContent = `${percent}%`;
   $("#progress-fill").style.width = `${(collected / total) * 100}%`;
+  const dash = $("#dashboard");
+  if (dash && !dash.classList.contains("hidden")) renderDashboard();
 }
 
 function countCollected(section) {
