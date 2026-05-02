@@ -2,29 +2,27 @@
    ÁLBUM COPA 2026 — APP
    ============================================================ */
 
-const STORAGE_AUTH = "albumCopa2026:auth";
+const SUPABASE_URL = "https://jekmtuoxbzryykarfnbf.supabase.co";
+const SUPABASE_ANON_KEY =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Impla210dW94YnpyeXlrYXJmbmJmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2ODEzNTQsImV4cCI6MjA5MzI1NzM1NH0.zFz6A-q_1aKyTMz0wfFYlrGTP5lfI10OFt-rFEYOlMs";
+
 const STORAGE_PROGRESS_PREFIX = "albumCopa2026:progress:";
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
 let state = {
   user: null,
   collected: new Set(),
 };
+let saveTimer = null;
 
 /* --------------------------------------------
    Boot
    -------------------------------------------- */
-document.addEventListener("DOMContentLoaded", () => {
-  const auth = readAuth();
-  if (auth) {
-    state.user = auth;
-    state.collected = new Set(readProgress(auth.email));
-    showApp();
-  } else {
-    showLogin();
-  }
+document.addEventListener("DOMContentLoaded", async () => {
   twemojiParse(document.body);
 
   $("#login-form").addEventListener("submit", handleLogin);
@@ -37,70 +35,136 @@ document.addEventListener("DOMContentLoaded", () => {
     if (file) importProgress(file);
     e.target.value = "";
   });
+
+  const {
+    data: { session },
+  } = await sb.auth.getSession();
+  if (session) {
+    await enterAppForSession(session);
+  } else {
+    showLogin();
+  }
 });
 
 /* --------------------------------------------
-   Auth
+   Auth (Supabase)
    -------------------------------------------- */
-function readAuth() {
-  try {
-    const raw = localStorage.getItem(STORAGE_AUTH);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
-
-function writeAuth(auth) {
-  localStorage.setItem(STORAGE_AUTH, JSON.stringify(auth));
-}
-
-function clearAuth() {
-  localStorage.removeItem(STORAGE_AUTH);
-}
-
-function handleLogin(e) {
+async function handleLogin(e) {
   e.preventDefault();
   const form = e.currentTarget;
   const email = form.email.value.trim().toLowerCase();
   const password = form.password.value;
   if (!email || !password) return;
 
-  const auth = { email, since: Date.now() };
-  writeAuth(auth);
-  state.user = auth;
-  state.collected = new Set(readProgress(email));
+  const submitBtn = form.querySelector("button[type=submit]");
+  const original = submitBtn.innerHTML;
+  submitBtn.disabled = true;
+  submitBtn.innerHTML = "Entrando...";
+
+  let { data, error } = await sb.auth.signInWithPassword({ email, password });
+
+  if (error && /invalid login credentials/i.test(error.message)) {
+    const signUpRes = await sb.auth.signUp({ email, password });
+    if (signUpRes.error) {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = original;
+      alert("Erro ao criar conta: " + signUpRes.error.message);
+      return;
+    }
+    if (!signUpRes.data.session) {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = original;
+      alert(
+        "Conta criada, mas o Supabase pediu confirmação por e-mail.\n\n" +
+          "Vá em Authentication → Providers → Email no dashboard e desligue 'Confirm email'."
+      );
+      return;
+    }
+    data = signUpRes.data;
+  } else if (error) {
+    submitBtn.disabled = false;
+    submitBtn.innerHTML = original;
+    alert("Erro: " + error.message);
+    return;
+  }
+
+  await enterAppForSession(data.session);
+  submitBtn.disabled = false;
+  submitBtn.innerHTML = original;
+  form.reset();
+}
+
+async function enterAppForSession(session) {
+  state.user = { email: session.user.email, id: session.user.id };
+
+  let collected = await loadProgressFromCloud();
+
+  const localKey = STORAGE_PROGRESS_PREFIX + state.user.email;
+  if (collected.length === 0) {
+    try {
+      const localRaw = localStorage.getItem(localKey);
+      const local = localRaw ? JSON.parse(localRaw) : [];
+      if (Array.isArray(local) && local.length > 0) {
+        await saveProgressToCloud(local);
+        collected = local;
+      }
+    } catch {}
+  }
+
+  state.collected = new Set(collected);
+  localStorage.setItem(localKey, JSON.stringify(collected));
   showApp();
 }
 
-function handleLogout() {
-  clearAuth();
+async function handleLogout() {
+  await sb.auth.signOut();
   state = { user: null, collected: new Set() };
   showLogin();
 }
 
 /* --------------------------------------------
-   Progress storage
+   Progress storage (Supabase + localStorage cache)
    -------------------------------------------- */
-function progressKey(email) {
-  return STORAGE_PROGRESS_PREFIX + email;
+async function loadProgressFromCloud() {
+  if (!state.user) return [];
+  const { data, error } = await sb
+    .from("progress")
+    .select("collected")
+    .eq("user_id", state.user.id)
+    .maybeSingle();
+  if (error) {
+    console.warn("[progress] cloud load failed, using cache:", error.message);
+    try {
+      const raw = localStorage.getItem(
+        STORAGE_PROGRESS_PREFIX + state.user.email
+      );
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  }
+  return data?.collected || [];
 }
 
-function readProgress(email) {
-  try {
-    const raw = localStorage.getItem(progressKey(email));
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
+async function saveProgressToCloud(arr) {
+  if (!state.user) return;
+  const { error } = await sb.from("progress").upsert({
+    user_id: state.user.id,
+    collected: arr,
+    updated_at: new Date().toISOString(),
+  });
+  if (error) console.warn("[progress] cloud save failed:", error.message);
 }
 
 function writeProgress() {
   if (!state.user) return;
+  const arr = Array.from(state.collected);
   localStorage.setItem(
-    progressKey(state.user.email),
-    JSON.stringify(Array.from(state.collected))
+    STORAGE_PROGRESS_PREFIX + state.user.email,
+    JSON.stringify(arr)
   );
+  if (saveTimer) clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => saveProgressToCloud(arr), 600);
 }
 
 /* --------------------------------------------
